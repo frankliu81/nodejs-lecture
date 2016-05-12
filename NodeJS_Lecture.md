@@ -266,7 +266,7 @@ var mongoose = require("mongoose"),
 // QuestionSchema is capitalized so we treat it as a class
 // Define a Schema to tell us what kind of data we want to have
 var QuestionSchema = new Schema({
-  title: {type: String, require: true},
+  title: {type: String, required: true},
   body:  {type: String}
 });
 
@@ -276,7 +276,7 @@ module.exports = Question;
 
 Now to use this, we must require this file in our `/routes/question.js`
 ```js
-// routes/question.js
+// routes/questions.js
 
 var Question = require("../models/question")
 
@@ -293,4 +293,81 @@ router.post("/", function(req, res) {
     }
   });
 });
+```
+
+Let's now see how we can send errors.
+
+```js
+// routes/questions.js
+
+// err object looks like:
+// errors:
+// { title: { [] } };
+var question = new Question({title: req.body.title,
+                             body:  req.body.body});
+question.save(function(err, question) {
+  if(err) {
+    console.log(err);
+    // res.end("failure");
+    res.render("questions/new", {errors: err.errors});
+  } else {
+    console.log(question);
+    res.end("success");
+  }
+});
+```
+
+Then in our `pug` file:
+```pug
+.col-md-6
+  form.form-horizontal(action="/questions" method="POST")
+    .form-group(class=errors.title ? 'has-error' : '')
+      label(for="title") Title
+      input.form-control#title(type="text" name="title")
+      if errors.title
+        .help-block= errors.title
+        //- the '=' must be touching to render the variable and not literal
+```
+
+Now we want to create a show page to display the question.
+
+```js
+// questions.js
+
+router.post("/", function(req, res) {
+  var question = new Question({title: req.body.title,
+                               body:  req.body.body});
+  question.save(function(err, question) {
+    if(err) {
+      console.log(err);
+      res.render("questions/new", {errors: err.errors});
+    } else {
+      console.log(question);
+      res.redirect("/questions/" + question._id);
+    }
+  });
+});
+
+router.get("/:id", function(req, res){
+  Question.findOne({_id: req.params.id}, function(err, question) {
+    if(err) {
+      res.render("error", {message: "Question not found!",
+                           error: {status: 404}});
+    } else {
+      res.render("questions/show", {question: question});
+    }
+  });
+});
+```
+
+Also create a file called `show.pug` in `views/questions`
+```pug
+//- views/questions/show.pug
+
+extend ../layout
+
+block content
+  h1= question.title
+  p= question.body
+  //- the '=' must be touching to render the variable and not literal
 ```

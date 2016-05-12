@@ -5,7 +5,7 @@ var mongoose = require("mongoose"),
 // QuestionSchema is capitalized so we treat it as a class
 // Define a Schema to tell us what kind of data we want to have
 var QuestionSchema = new Schema({
-  title: {type: String, require: true},
+  title: {type: String, required: true},
   body:  {type: String}
 });
 
