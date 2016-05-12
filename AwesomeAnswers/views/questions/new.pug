@@ -1,0 +1,20 @@
+extends ../layout
+
+block content
+  h1 New Question
+  .col-md-6
+    form.form-horizontal(action="/questions" method="POST")
+      //- pug is space sensitive => don't need "end", all nesting is done through tab
+      //- define <div class="form-group"> with just .form-group
+      //- separate divs by simply making a new block;
+      //- chain class with .class before, id with # before; tag must be first but the order doesn't matter
+      //- adding a class to the overall form would be form.form-horizontal(action="")...
+      .form-group
+        label(for="title") Title
+        input.form-control#title(type="text" name="title")
+      .form-group
+        label(for="body") Body
+        textarea.form-control#body(name="body")
+      .form-group
+        label(for="submit")
+        input.btn.btn-primary(type="submit" value="Create Question")

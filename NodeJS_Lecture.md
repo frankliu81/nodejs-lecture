@@ -5,7 +5,7 @@ For today's lecture we will be recreating our Awesome Answers application using 
 
 NodeJS is an environment in which to run JavaScript.
 
-NodeJS runs on the V8 engine (same engine that powers Chrome) as is <em> faster </em> than Ruby. Javascript by nature is <em> asynchronus </em> whereas Ruby is <em> sequential </em>.
+NodeJS runs on the V8 engine (same engine that powers Chrome) and is <em> faster </em> than Ruby. Javascript by nature is <em> asynchronus </em> whereas Ruby is <em> sequential </em>.
 
 For example, let's look at a request with Rails.
 
@@ -67,6 +67,7 @@ Let's use `pug` instead of `jade` for now.
 cd AwesomeAnswers
 # remove the jade line
 npm install pug --save
+# --save is to add it to our json package
 ```
 
 Now looking in `app.js`
@@ -77,22 +78,24 @@ Now looking in `app.js`
 // Require is similar to Ruby => Note that these are not global in Ruby, must require in each file
 // We need to manually require in each file that we need => This opens up to more customization and security (as opposed to Rails where everything is accessible everywhere)
 
-// Routes are similar to controllers => The routes were automatically generated
+// Think of "routes" as controllers => The routes were automatically generated
 
-// app.set('views') is setting the views folder
-// app.set ('view engine') is the engine we want => change to pug
+// app.set('views') is setting the views folder => main directory is views so we won't need to define that in our routes in methods later on
+// app.set ('view engine') is the engine we want => change from jade to pug
 app.set('view engine', 'pug');
 
+// app.use are for our "middleware"
 // Express uses a lot of "middleware" to handle a lot of basic actions. These "middleware" can be chained => pass other "middleware" as event handlers
 // Think of middleware as "before actions" in Rails (note that Rails does a lot of these for us already)
 app.use(logger('dev')); // Before => use logger
 app.use(bodyParser.json()); // Before => parse the data as a JSON
 
 // Example of how one of these "middleware" works
+// Notice that this function is at the end => order matters! After it checks all the routes it will return a 404 not found error
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {
   // req, res, next are more "middleware" as event handlers
-  // order matters!
+  // next refers to the next middleware
   var err = new Error('Not Found');
   err.status = 404;
   next(err);
@@ -139,7 +142,7 @@ router.get("/new", function(req, res, next) {
 // JS is asynchronus => need callbacks for order
 
 module.exports = router;
-// Every time we want to require a file it must have the exports at the end
+// Every time we want to require a file in app.js it must have the exports at the end
 ```
 
 Now to use the file we just generated, head back to `app.js`
@@ -149,6 +152,8 @@ Now to use the file we just generated, head back to `app.js`
 
 var questions = require('./routes/questions');
 
+// Order matters! Place after your other app.use("/"); lines
+// Otherwise, the middleware used to parse JSON etc won't be called and your methods may return undefined items
 app.use("/questions", questions);
 ```
 
@@ -161,3 +166,131 @@ npm install -g nodemon
 ```
 
 From now on, we'll start our server with the command `nodemon bin/www`
+
+Notice that in `question.js` we didn't need the full route of `/questions/new` to create the `/new` page. This is done automatically for us.
+
+Now rather than just rendering text, let's render a page. Create the file `new.pug` in `/views/questions`
+
+```pug
+<!-- views/questions/new.pug -->
+
+h1 New Questions
+```
+
+```js
+// questions.js
+
+router.get("/new", function(req, res, next) {
+  res.render("questions/new");
+});
+```
+
+If we want to use the application layout, we must have the line `extends ../layout` at the top of our code.
+```pug
+//- new.pug
+
+extends ../layout
+
+block content
+  h1 New Question
+  .col-md-6
+    form.form-horizontal(action="/questions" method="POST")
+      //- pug is space sensitive => don't need "end", all nesting is done through tab
+      //- define <div class="form-group"> with just .form-group
+      //- separate divs by simply making a new block;
+      //- chain class with .class before, id with # before; tag must be first but the order doesn't matter
+      //- adding a class to the overall form would be form.form-horizontal(action="")...
+      .form-group
+        label(for="title") Title
+        input.form-control#title(type="text" name="title")
+      .form-group
+        label(for="body") Body
+        textarea.form-control#body(name="body")
+      .form-group
+        label(for="submit")
+        input.btn.btn-primary(type="submit" value="Create Question")
+```
+
+For now let's also add Bootstrap. For simplicity, let's use the CDN
+```pug
+//- layout.pug above the other link()
+
+link(href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css", rel="stylesheet", integrity="sha384-1q8mTJOASx8j1Au+a5WDVnPi2lkFfwwEAa8hDDdjZlpLegxhjVME1fgjWPGmkzs7", crossorigin="anonymous")
+```
+
+Now clicking Create Question brings an error, so let's create that action and route.
+
+```js
+// questions.js
+
+router.post("/", function(req, res) {
+  console.log(req.body);
+  res.end("created!");
+  // end for now to see that it works
+});
+```
+
+Now let's take this information and store it in MongoDB. We'll be using `Mongoose` for this.
+
+```bash
+# terminal
+
+npm install mongoose --save
+# Not a global install, we want it just for this project
+```
+
+Now we must connect to the MongoDB
+```js
+// app.js
+
+var mongoose = require('mongoose');
+
+mongoose.connect('mongodb://localhost/AwesomeAnswers');
+```
+
+Now run MongoDB in the background
+```bash
+# terminal
+
+mongod --config /usr/local/etc/mongod.conf &
+```
+
+Now let's create a folder called `models` with the file `question.js` inside.
+```js
+// models/question.js
+
+var mongoose = require("mongoose"),
+    Schema = mongoose.Schema;
+    // we can use a ',' instead of typing var multiple times
+
+// QuestionSchema is capitalized so we treat it as a class
+// Define a Schema to tell us what kind of data we want to have
+var QuestionSchema = new Schema({
+  title: {type: String, require: true},
+  body:  {type: String}
+});
+
+var Question = mongoose.model("Question", QuestionSchema);
+module.exports = Question;
+```
+
+Now to use this, we must require this file in our `/routes/question.js`
+```js
+// routes/question.js
+
+var Question = require("../models/question")
+
+router.post("/", function(req, res) {
+  var question = new Question({title: req.body.title,
+                               body:  req.body.body});
+  question.save(function(err, question) {
+    if(err) {
+      console.log(err);
+      res.end("failure");
+    } else {
+      console.log(question);
+      res.end("success");
+    }
+  });
+});
+```
