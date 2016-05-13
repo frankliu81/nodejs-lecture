@@ -181,7 +181,7 @@ h1 New Questions
 // questions.js
 
 router.get("/new", function(req, res, next) {
-  res.render("questions/new");
+  res.render("questions/new", {errors: []});
 });
 ```
 
